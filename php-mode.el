@@ -1310,10 +1310,13 @@ After setting the stylevars run hooks according to STYLENAME
   (set (make-local-variable 'add-log-current-defun-header-regexp)
        php-beginning-of-defun-regexp)
 
+
   (when (>= emacs-major-version 25)
     (with-silent-modifications
       (save-excursion
-        (php-syntax-propertize-function (point-min) (point-max))))))
+        (php-syntax-propertize-function (point-min) (point-max)))))
+
+  (put 'php-mode 'find-tag-default-function (lambda () (php-get-pattern-ext t))))
 
 
 (declare-function semantic-create-imenu-index "semantic/imenu" (&optional stream))
@@ -1337,7 +1340,7 @@ and the standard php functions.
 The string to complete is chosen in the same way as the default
 for \\[find-tag] (which see)."
   (interactive)
-  (let ((pattern (php-get-pattern))
+  (let ((pattern (php-get-pattern-ext))
         beg
         completion
         (php-functions (php-completion-table)))
@@ -1371,8 +1374,7 @@ current `tags-file-name'."
            php-completion-table)
       (let ((tags-table
              (when tags-file-name
-               (with-current-buffer (get-file-buffer tags-file-name)
-                 (etags-tags-completion-table))))
+               (php-build-table-from-tags tags-file-name)))
             (php-table
              (cond ((and (not (string= "" php-completion-file))
                          (file-readable-p php-completion-file))
@@ -1392,6 +1394,23 @@ current `tags-file-name'."
                         tags-table)
             (setq php-table (append tags-table php-table))))
         (setq php-completion-table php-table))))
+
+;; As some meta data from php-etags.php is used in the TAGS file,
+;; etags-tags-completion-table won't do and we have to roll our own
+(defun php-build-table-from-tags (filename)
+  (let ((table (make-vector 1022 0))
+        (buf (find-file-noselect filename)))
+    (save-excursion
+      (set-buffer buf)
+      (goto-char (point-min))
+      (while (re-search-forward
+              "\\(\\(function\\|method\\|constructor\\) \\)?\\([a-zA-Z0-9_]+\\)"
+              nil t)
+        (intern (buffer-substring (match-beginning 3) (match-end 3))
+                table)))
+    (kill-buffer buf)
+    table))
+
 
 (defun php-build-table-from-file (filename)
   (let ((table (make-vector 1022 0))
@@ -1434,9 +1453,55 @@ current `tags-file-name'."
                        (point))))
       nil)))
 
+(defun php-get-pattern-ext (&optional search-p)
+  (let ((search-p (or search-p nil))
+        (search nil)
+        (method-p nil)
+        (constructor-p nil)
+        (back 0))
+    (save-excursion
+      (while (looking-at "\\sw\\|\\s_")
+        (forward-char 1))
+      (if (or (re-search-backward "\\sw\\|\\s_"
+                                  (save-excursion (beginning-of-line) (point))
+                                  t)
+              (re-search-forward "\\(\\sw\\|\\s_\\)+"
+                                 (save-excursion (end-of-line) (point))
+                                 t))
+          (progn
+            (goto-char (match-end 0))
+            (setq search
+                  (buffer-substring-no-properties
+                   (point)
+                   (progn
+                     (forward-sexp -1)
+                     (when search-p
+                       (cond
+                         ((or (looking-back "->") (looking-back "::"))
+                          (setq method-p t)
+                          (setq back 2)
+                          (backward-char back))
+                         ((looking-back "new ")
+                          (setq constructor-p t)
+                          (setq back 4)
+                          (backward-char back))
+                         ((looking-back "extends ")
+                          (setq constructor-p t)
+                          (setq back 8)
+                          (backward-char back))))
+                     (while (looking-at "\\s'")
+                       (forward-char 1))
+                     (point))))
+            (cond (method-p
+                   (setq search (concat "method " (substring search back))))
+                  (constructor-p
+                   (setq search (concat "constructor " (substring search back)))))
+            search)
+          nil))))
+ 
 (defun php-show-arglist ()
   (interactive)
-  (let* ((tagname (php-get-pattern))
+  (let* ((tagname (php-get-pattern-ext))
          (buf (find-tag-noselect tagname nil nil))
          arglist)
     (with-current-buffer buf
@@ -1449,6 +1514,47 @@ current `tags-file-name'."
     (if arglist
         (message "Arglist for %s: %s" tagname arglist)
         (message "Unknown function: %s" tagname))))
+
+;; Syntax check the current buffer
+;; using CLI php -l
+;; (Buffer has to be saved)
+(defun php-check-syntax ()
+  "Check for Syntax errors using CLI php"
+  (interactive)
+  (let ((msg nil))
+    (if (not (buffer-modified-p))
+        (setq msg (shell-command-to-string (format "php -l %s" (buffer-file-name))))
+      (let ((tmp-name (make-temp-name "/tmp/phpsyntax"))
+            (content (buffer-string)))
+        (with-temp-file tmp-name
+          (insert content))
+        (setq msg (shell-command-to-string (format "php -l %s" tmp-name)))
+        (delete-file tmp-name)))
+    (if (string= (substring msg 0 2) "No")
+        (progn (message "No Errors found") nil)
+;      (string-match (format "in '%s'" 
+      (message msg)
+      t)))
+
+(defun php-check-syntax-and-goto-line ()
+  "Check for Syntax errors using CLI php"
+  (interactive)
+  (let ((msg nil))
+    (if (not (buffer-modified-p))
+        (setq msg (shell-command-to-string (format "php -l %s" (buffer-file-name))))
+      (let ((tmp-name (make-temp-name "/tmp/phpsyntax"))
+            (content (buffer-string)))
+        (with-temp-file tmp-name
+          (insert content))
+        (setq msg (shell-command-to-string (format "php -l %s" tmp-name)))
+        (delete-file tmp-name)))
+    (if (string= (substring msg 0 2) "No")
+        (progn (message "No Errors found") nil)
+      (string-match "on line \\([0-9]+\\)" msg)
+      (goto-line (string-to-number (match-string 1 msg)))
+      (message msg)
+      t)))
+
 
 (defcustom php-search-documentation-browser-function nil
   "Function to display PHP documentation in a WWW browser.
