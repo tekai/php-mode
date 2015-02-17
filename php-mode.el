@@ -1456,12 +1456,17 @@ current `tags-file-name'."
 (defun php-get-pattern-ext (&optional search-p)
   (let ((search-p (or search-p nil))
         (search nil)
+        (method-or-function-p) ;; this only interesting of t, we might
+                               ;; still want to search for methods or
+                               ;; functions when it's nil
         (method-p nil)
         (constructor-p nil)
         (back 0))
     (save-excursion
       (while (looking-at "\\sw\\|\\s_")
         (forward-char 1))
+      (if (looking-at "(")
+          (setq method-or-function-p t))
       (if (or (re-search-backward "\\sw\\|\\s_"
                                   (save-excursion (beginning-of-line) (point))
                                   t)
@@ -1495,7 +1500,10 @@ current `tags-file-name'."
             (cond (method-p
                    (setq search (concat "method " (substring search back))))
                   (constructor-p
-                   (setq search (concat "constructor " (substring search back)))))
+                   (setq search (concat "constructor " (substring search back))))
+                  ((and method-or-function-p (and (not method-p) (not constructor-p)))
+                   (setq search (concat "function " (substring search back)))))
+
             search)
           nil))))
  
