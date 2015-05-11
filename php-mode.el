@@ -1559,7 +1559,8 @@ current `tags-file-name'."
     (if (string= (substring msg 0 2) "No")
         (progn (message "No Errors found") nil)
       (string-match "on line \\([0-9]+\\)" msg)
-      (goto-line (string-to-number (match-string 1 msg)))
+      (goto-char (point-min))
+      (forward-line (1- (string-to-number (match-string 1 msg))))
       (message msg)
       t)))
 
