@@ -1400,8 +1400,7 @@ current `tags-file-name'."
 (defun php-build-table-from-tags (filename)
   (let ((table (make-vector 1022 0))
         (buf (find-file-noselect filename)))
-    (save-excursion
-      (set-buffer buf)
+    (with-current-buffer buf
       (goto-char (point-min))
       (while (re-search-forward
               "\\(\\(function\\|method\\|constructor\\) \\)?\\([a-zA-Z0-9_]+\\)"
