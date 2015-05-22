@@ -1455,7 +1455,7 @@ current `tags-file-name'."
 (defun php-get-pattern-ext (&optional search-p)
   (let ((search-p (or search-p nil))
         (search nil)
-        (method-or-function-p) ;; this only interesting of t, we might
+        (method-or-function-p) ;; this only interesting if t, we might
                                ;; still want to search for methods or
                                ;; functions when it's nil
         (method-p nil)
@@ -1485,15 +1485,18 @@ current `tags-file-name'."
                           (setq method-p t)
                           (setq back 2)
                           (backward-char back))
-                         ((looking-back "new ")
+                         ((or (looking-back "new ") (looking-back "use "))
                           (setq constructor-p t)
                           (setq back 4)
                           (backward-char back))
                          ((looking-back "extends ")
                           (setq constructor-p t)
                           (setq back 8)
-                          (backward-char back))))
-                     (while (looking-at "\\s'")
+                          (backward-char back))
+                         ;; \name\space\Class
+                         ((looking-at "\\\\")
+                          (setq constructor-p t))))
+                     (while (looking-at "\\s'\\|\\\\")
                        (forward-char 1))
                      (point))))
             (cond (method-p
