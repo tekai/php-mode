@@ -1487,6 +1487,8 @@ current `tags-file-name'."
                           (backward-char back))
                          ((or (looking-back "new ") (looking-back "use "))
                           (setq constructor-p t)
+                          (while (looking-at "\\s'\\|\\\\")
+                            (forward-char 1))
                           (setq back 4)
                           (backward-char back))
                          ((looking-back "extends ")
