@@ -1460,6 +1460,7 @@ current `tags-file-name'."
                                ;; functions when it's nil
         (method-p nil)
         (constructor-p nil)
+        (interface-p nil)
         (back 0))
     (save-excursion
       (while (looking-at "\\sw\\|\\s_")
@@ -1495,6 +1496,10 @@ current `tags-file-name'."
                           (setq constructor-p t)
                           (setq back 8)
                           (backward-char back))
+                         ((looking-back "implements ")
+                          (setq interface-p t)
+                          (setq back 11)
+                          (backward-char back))
                          ;; \name\space\Class
                          ((looking-at "\\\\")
                           (setq constructor-p t))))
@@ -1505,6 +1510,8 @@ current `tags-file-name'."
                    (setq search (concat "method " (substring search back))))
                   (constructor-p
                    (setq search (concat "constructor " (substring search back))))
+                  (interface-p
+                   (setq search (concat "interface " (substring search back))))
                   ((and method-or-function-p (and (not method-p) (not constructor-p)))
                    (setq search (concat "function " (substring search back)))))
 
