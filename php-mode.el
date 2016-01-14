@@ -1467,6 +1467,8 @@ current `tags-file-name'."
         (forward-char 1))
       (if (looking-at "(")
           (setq method-or-function-p t))
+      (if (looking-at "::")
+          (setq constructor-p t))
       (if (or (re-search-backward "\\sw\\|\\s_"
                                   (save-excursion (beginning-of-line) (point))
                                   t)
