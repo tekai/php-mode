@@ -746,6 +746,15 @@ but only if the setting is enabled"
   (interactive)
   (php-set-style "psr2"))
 
+(c-add-style
+ "ees"
+ '("php"
+   (c-basic-offset . 4)
+   (c-offsets-alist . ((case-label . 0)
+                       (arglist-close . php-lineup-arglist-close)
+                       (statement-cont . (first php-lineup-cascaded-calls +))
+                       (topmost-intro-cont . +)))))
+
 (defconst php-beginning-of-defun-regexp
   "^\\s-*\\(?:\\(?:abstract\\|final\\|private\\|protected\\|public\\|static\\)\\s-+\\)*function\\s-+&?\\(\\(?:\\sw\\|\\s_\\)+\\)\\s-*("
   "Regular expression for a PHP function.")
