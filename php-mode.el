@@ -409,8 +409,6 @@ In that case set to `NIL'."
     ;; (define-key map [menu-bar php]
     ;;   (cons "PHP" (make-sparse-keymap "PHP")))
 
-    ;; (define-key map [menu-bar php complete-function]
-    ;;   '("Complete function name" . php-complete-function))
     ;; (define-key map [menu-bar php browse-manual]
     ;;   '("Browse manual" . php-browse-manual))
     ;; (define-key map [menu-bar php search-documentation]
@@ -446,7 +444,6 @@ In that case set to `NIL'."
     (define-key map [remap c-set-style] 'php-set-style)
 
     (define-key map [(control c) (control f)] 'php-search-documentation)
-    (define-key map [(meta tab)] 'php-complete-function)
     (define-key map [(control c) (control m)] 'php-browse-manual)
     (define-key map [(control .)] 'php-show-arglist)
     (define-key map [(control c) (control r)] 'php-send-region)
@@ -458,8 +455,7 @@ In that case set to `NIL'."
   "Keymap for `php-mode'.")
 
 (c-lang-defconst c-mode-menu
-  php (append '(["Complete function name" php-complete-function t]
-                ["Browse manual" php-browse-manual t]
+  php (append '(["Browse manual" php-browse-manual t]
                 ["Search documentation" php-search-documentation t]
                 ["----" t])
               (c-lang-const c-mode-menu)))
@@ -1324,7 +1320,7 @@ After setting the stylevars run hooks according to STYLENAME
     (with-silent-modifications
       (save-excursion
         (php-syntax-propertize-function (point-min) (point-max)))))
-
+  (add-hook 'completion-at-point-functions 'php-completion-at-point-function)
   (put 'php-mode 'find-tag-default-function (lambda () (php-get-pattern-ext t))))
 
 
@@ -1339,40 +1335,23 @@ After setting the stylevars run hooks according to STYLENAME
 
 
 ;; Define function name completion function
+(defun php-completion-at-point-function ()
+  "Using `php-completion-table', return a completion table for the text around point.
+If no tags table is loaded, do nothing and return nil."
+    (let ((pattern (php-get-pattern-ext))
+          beg
+          completion
+          (php-functions (php-completion-table)))
+	(save-excursion
+      (when (and pattern (search-backward pattern nil t))
+            (setq beg (point))
+            (forward-char (length pattern))
+            (list beg (point)
+                  (all-completions pattern php-functions)
+                  :exclusive 'no)))))
+
 (defvar php-completion-table nil
   "Obarray of tag names defined in current tags table and functions known to PHP.")
-
-(defun php-complete-function ()
-  "Perform function completion on the text around point.
-Completes to the set of names listed in the current tags table
-and the standard php functions.
-The string to complete is chosen in the same way as the default
-for \\[find-tag] (which see)."
-  (interactive)
-  (let ((pattern (php-get-pattern-ext))
-        beg
-        completion
-        (php-functions (php-completion-table)))
-    (if (not pattern) (message "Nothing to complete")
-        (if (not (search-backward pattern nil t))
-            (message "Can't complete here")
-          (setq beg (point))
-          (forward-char (length pattern))
-          (setq completion (try-completion pattern php-functions nil))
-          (cond ((eq completion t))
-                ((null completion)
-                 (message "Can't find completion for \"%s\"" pattern)
-                 (ding))
-                ((not (string= pattern completion))
-                 (delete-region beg (point))
-                 (insert completion))
-                (t
-                 (let ((selected (completing-read
-                                  "Select completion: "
-                                  (all-completions pattern php-functions)
-                                  nil t pattern)))
-                   (delete-region beg (point))
-                   (insert selected))))))))
 
 (defun php-completion-table ()
   "Build variable `php-completion-table' on demand.
